@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.scalecube</groupId>
+    <artifactId>scalecube-parent-pom</artifactId>
+    <version>0.0.19</version>
+  </parent>
+
+  <artifactId>scalecube-vaultenv</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+
+  <name>ScaleCube VaultEnv</name>
+  <description>
+    ScaleCube VaultEnv is an utility to read static secrets from Vault server.
+  </description>
+  <inceptionYear>2020</inceptionYear>
+  <url>https://github.com/scalecube/scalecube-vaultenv</url>
+
+  <scm>
+    <url>https://github.com/scalecube/scalecube-vaultenv</url>
+    <connection>scm:git:git@github.com:scalecube/scalecube-vaultenv.git</connection>
+    <developerConnection>scm:git:git@github.com:scalecube/scalecube-vaultenv.git
+    </developerConnection>
+    <tag>HEAD</tag>
+  </scm>
+
+  <properties>
+    <checkstyle.skip>false</checkstyle.skip>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+    <slf4j.version>1.7.7</slf4j.version>
+    <log4j.version>2.5</log4j.version>
+    <vault-java-driver.version>5.0.0</vault-java-driver.version>
+    <org.testcontainers.vault.version>1.12.3</org.testcontainers.vault.version>
+
+    <mockito-junit-jupiter.version>2.27.0</mockito-junit-jupiter.version>
+    <junit-jupiter.version>5.1.1</junit-jupiter.version>
+    <hamcrest.version>1.3</hamcrest.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.bettercloud</groupId>
+      <artifactId>vault-java-driver</artifactId>
+      <version>${vault-java-driver.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>${slf4j.version}</version>
+    </dependency>
+    <!-- Test scope -->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>vault</artifactId>
+      <version>${org.testcontainers.vault.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-slf4j-impl</artifactId>
+      <version>${log4j.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-core</artifactId>
+      <version>${log4j.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <version>${junit-jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
+      <version>${junit-jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-junit-jupiter</artifactId>
+      <version>${mockito-junit-jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest-all</artifactId>
+      <version>${hamcrest.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest-core</artifactId>
+      <version>${hamcrest.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+</project>
