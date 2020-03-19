@@ -1,16 +1,13 @@
 package io.scalecube.vaultenv;
 
-import java.util.Arrays;
-import java.util.HashMap;
+import com.bettercloud.vault.VaultException;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.Optional;
+import java.util.logging.LogManager;
+import org.slf4j.bridge.SLF4JBridgeHandler;
 
 public class VaultEnvironmentRunner {
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(VaultEnvironmentRunner.class);
 
   // Vault
   private static final String VAULT_ADDR_ENV = "VAULT_ADDR";
@@ -18,7 +15,13 @@ public class VaultEnvironmentRunner {
   private static final String KUBERNETES_VAULT_ROLE_ENV = "VAULT_ROLE";
   private static final String VAULT_SECRETS_PATH_ENV = "VAULT_SECRETS_PATH";
   private static final String VAULT_ENGINE_VERSION_ENV = "VAULT_ENGINE_VERSION";
-  private static final String DEFAULT_VAULT_ENGINE_VERSION = "1";
+  private static final int DEFAULT_VAULT_ENGINE_VERSION = 1;
+
+  static {
+    // JUL support
+    LogManager.getLogManager().reset();
+    SLF4JBridgeHandler.install();
+  }
 
   /**
    * Main program.
@@ -28,45 +31,39 @@ public class VaultEnvironmentRunner {
    */
   public static void main(String[] args) throws Exception {
     if (args.length != 1) {
-      throw new IllegalArgumentException("wrong args.length");
+      throw new IllegalArgumentException("wrong args.length (must be 1)");
     }
     if (args[0].isEmpty() || args[0].trim().isEmpty()) {
-      throw new IllegalArgumentException("cmd is required");
+      throw new IllegalArgumentException("command is required");
     }
 
-    final String cmd = args[0];
+    String cmd = args[0];
+    Map<String, String> secrets = readSecrets();
 
-    Map<String, String> env = System.getenv();
-
-    final String vaultAddr = Objects.requireNonNull(env.get(VAULT_ADDR_ENV), "vault address");
-    final String secretsPath =
-        Objects.requireNonNull(env.get(VAULT_SECRETS_PATH_ENV), "vault secret path");
-
-    String vaultEngineVersion =
-        env.getOrDefault(VAULT_ENGINE_VERSION_ENV, DEFAULT_VAULT_ENGINE_VERSION);
-
-    Map<String, String> secrets =
-        VaultInvoker.builder(secretsPath)
-            .options(c -> c.address(vaultAddr))
-            .options(c -> c.putSecretsEngineVersionForPath(secretsPath + "/", vaultEngineVersion))
-            .tokenSupplier(getVaultTokenSupplier(env))
-            .build()
-            .readSecrets();
-
-    LOGGER.info(
-        "Executing cmd: [{}], env: {}",
-        cmd,
-        Arrays.asList(toEnvironment(secrets, env, true /*mask*/)));
-
-    int exitCode =
-        Runtime.getRuntime().exec(cmd, toEnvironment(secrets, env, false /*mask*/)).waitFor();
-
-    LOGGER.info("Cmd: [{}] finished with exit code {}", cmd, exitCode);
+    new ProcessInvoker(cmd, secrets).runThenJoin();
   }
 
-  private static VaultTokenSupplier getVaultTokenSupplier(Map<String, String> environment) {
-    String vaultToken = environment.get(VAULT_TOKEN_ENV);
-    String kubernetesVaultRole = environment.get(KUBERNETES_VAULT_ROLE_ENV);
+  private static Map<String, String> readSecrets() throws VaultException {
+    String vaultAddr = Objects.requireNonNull(System.getenv(VAULT_ADDR_ENV), "vault address");
+    String secretsPath =
+        Objects.requireNonNull(System.getenv(VAULT_SECRETS_PATH_ENV), "vault secret path");
+
+    int vaultEngineVersion =
+        Optional.ofNullable(System.getenv(VAULT_ENGINE_VERSION_ENV))
+            .map(Integer::parseInt)
+            .orElse(DEFAULT_VAULT_ENGINE_VERSION);
+
+    return VaultInvoker.builder(secretsPath)
+        .options(c -> c.address(vaultAddr))
+        .options(c -> c.engineVersion(vaultEngineVersion))
+        .tokenSupplier(getVaultTokenSupplier())
+        .build()
+        .readSecrets();
+  }
+
+  private static VaultTokenSupplier getVaultTokenSupplier() {
+    String vaultToken = System.getenv(VAULT_TOKEN_ENV);
+    String kubernetesVaultRole = System.getenv(KUBERNETES_VAULT_ROLE_ENV);
 
     if (vaultToken == null && kubernetesVaultRole == null) {
       throw new IllegalArgumentException("Vault auth scheme is required");
@@ -81,36 +78,5 @@ public class VaultEnvironmentRunner {
     }
     // Kub8s token provider
     return new KubernetesVaultTokenSupplier();
-  }
-
-  private static String[] toEnvironment(
-      Map<String, String> secrets, Map<String, String> parentEnv, boolean mask) {
-
-    Map<String, String> environment = new HashMap<>();
-
-    Map<String, String> secretsEnv =
-        secrets.entrySet().stream()
-            .collect(
-                Collectors.toMap(
-                    entry -> toEnvironment(entry.getKey()),
-                    entry -> mask ? mask(entry.getValue()) : entry.getValue()));
-
-    environment.putAll(secretsEnv); // secrets first
-    environment.putAll(parentEnv); // parent env second
-
-    return environment.entrySet().stream()
-        .map(entry -> entry.getKey() + "=" + entry.getValue())
-        .toArray(String[]::new);
-  }
-
-  private static String toEnvironment(String key) {
-    return key.replaceAll("[.\\-/#]", "_").toUpperCase();
-  }
-
-  private static String mask(String data) {
-    if (data == null || data.isEmpty() || data.length() < 5) {
-      return "*****";
-    }
-    return data.replace(data.substring(2, data.length() - 2), "***");
   }
 }

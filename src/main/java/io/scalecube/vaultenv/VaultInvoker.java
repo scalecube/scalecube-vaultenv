@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory;
 
 public final class VaultInvoker {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(VaultInvoker.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger("VaultEnvironment");
 
   private static final int STATUS_CODE_RESPONSE_OK = 200;
 

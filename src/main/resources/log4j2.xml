@@ -12,6 +12,10 @@
   </Appenders>
 
   <Loggers>
+    <Logger name="VaultEnvironment" level="${env:vaultenvLogLevel:-DEBUG}"/>
+    <Logger name="io.scalecube.vaultenv" level="${env:vaultenvLogLevel:-DEBUG}"/>
+    <Logger name="com.bettercloud.vault" level="${env:bettercloudVaultLogLevel:-DEBUG}"/>
+
     <Root level="${env:logLevel:-DEBUG}">
       <AppenderRef ref="${env:logAppender:-STDOUT}"/>
     </Root>
