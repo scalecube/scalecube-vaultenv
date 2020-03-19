@@ -6,5 +6,5 @@ import com.bettercloud.vault.VaultConfig;
 @FunctionalInterface
 public interface VaultTokenSupplier {
 
-  String getToken(EnvironmentLoader environmentLoader, VaultConfig config);
+  String getToken(EnvironmentLoader environmentLoader, VaultConfig config) throws Exception;
 }

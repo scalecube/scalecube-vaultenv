@@ -4,11 +4,13 @@ import com.bettercloud.vault.EnvironmentLoader;
 import com.bettercloud.vault.Vault;
 import com.bettercloud.vault.VaultConfig;
 import com.bettercloud.vault.VaultException;
+import com.bettercloud.vault.response.HealthResponse;
+import com.bettercloud.vault.response.LogicalResponse;
 import com.bettercloud.vault.response.LookupResponse;
-import com.bettercloud.vault.response.VaultResponse;
 import com.bettercloud.vault.rest.RestResponse;
 import java.nio.charset.StandardCharsets;
-import java.util.Objects;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import org.slf4j.Logger;
@@ -18,135 +20,100 @@ public final class VaultInvoker {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(VaultInvoker.class);
 
-  private static final int STATUS_CODE_FORBIDDEN = 403;
-  private static final int STATUS_CODE_HELTH_OK = 200;
   private static final int STATUS_CODE_RESPONSE_OK = 200;
-  private static final int STATUS_CODE_RESPONSE_NO_DATA = 204;
 
   private final Builder builder;
-
-  private volatile Vault vault;
 
   private VaultInvoker(Builder builder) {
     this.builder = builder;
   }
 
-  public static Builder builder() {
-    return new Builder();
+  public static Builder builder(String secretsPath) {
+    return new Builder(secretsPath);
   }
 
   /**
-   * Invokes a given call with vault.
+   * Reads secrets.
    *
-   * @param call call
-   * @return vault response
+   * @return map of secrets
    */
-  public <T extends VaultResponse> T invoke(VaultCall<T> call) throws VaultException {
-    Vault vault = this.vault;
-    try {
-      if (vault == null) {
-        vault = recreateVault(null);
-      }
-      T response = call.apply(vault);
-      checkResponse(response.getRestResponse());
-      return response;
-    } catch (VaultException e) {
-      // try recreate Vault according to https://www.vaultproject.io/api/overview#http-status-codes
-      if (e.getHttpStatusCode() == STATUS_CODE_FORBIDDEN) {
-        LOGGER.warn("Authentication details are incorrect, occurred during invoking Vault", e);
-        return call.apply(recreateVault(vault));
-      }
-      throw e;
+  public Map<String, String> readSecrets() throws VaultException {
+    LogicalResponse response = createVault().logical().read(builder.secretsPath);
+
+    RestResponse restResponse = response.getRestResponse();
+    if (restResponse.getStatus() != STATUS_CODE_RESPONSE_OK) {
+      String body = toResponseString(restResponse);
+      LOGGER.error("Vault responded with code: {}, message: {}", restResponse.getStatus(), body);
+      throw new VaultException(body, restResponse.getStatus());
     }
+
+    return new HashMap<>(response.getData());
   }
 
-  private synchronized Vault recreateVault(Vault prev) throws VaultException {
-    try {
-      if (!Objects.equals(prev, vault) && vault != null) {
-        return vault;
-      }
-      vault = null;
+  private Vault createVault() throws VaultException {
+    VaultConfig vaultConfig =
+        builder
+            .options
+            .apply(new VaultConfig())
+            .environmentLoader(builder.environmentLoader)
+            .build();
 
-      VaultConfig vaultConfig =
-          builder
-              .options
-              .apply(new VaultConfig())
-              .environmentLoader(builder.environmentLoader)
-              .build();
-      String token = builder.tokenSupplier.getToken(builder.environmentLoader, vaultConfig);
-      Vault vault = new Vault(vaultConfig.token(token));
-      checkVault(vault);
-      LookupResponse lookupSelf = vault.auth().lookupSelf();
-      LOGGER.info("Initialized new Vault");
-      if (LOGGER.isDebugEnabled()) {
-        LOGGER.debug("More Vault details: {}", toResponseString(lookupSelf.getRestResponse()));
-      }
-      this.vault = vault;
-    } catch (VaultException e) {
-      LOGGER.error("Could not initialize and validate the vault", e);
-      throw e;
+    LOGGER.info(
+        "Created VaultConfig instance: {}, getting Vault token using: {} ...",
+        vaultConfig,
+        builder.tokenSupplier);
+
+    String token;
+    try {
+      token = builder.tokenSupplier.getToken(builder.environmentLoader, vaultConfig);
+    } catch (Exception e) {
+      throw new VaultException(e);
     }
+
+    LOGGER.info(
+        "Obtained Vault token ({}), getting Vault health and doing lookupSelf ...", mask(token));
+
+    Vault vault = new Vault(vaultConfig.token(token));
+    HealthResponse healthResponse = vault.debug().health();
+    LookupResponse lookupSelf = vault.auth().lookupSelf();
+
+    LOGGER.info(
+        "Created Vault instance: {}, health: {}, lookupSelf: {}",
+        vault,
+        toResponseString(healthResponse.getRestResponse()),
+        toResponseString(lookupSelf.getRestResponse()));
+
     return vault;
   }
 
-  /**
-   * Checks vault is active. See
-   * https://www.vaultproject.io/api/system/health.html#read-health-information.
-   *
-   * @param vault vault
-   */
-  private void checkVault(Vault vault) throws VaultException {
-    RestResponse restResponse = vault.debug().health().getRestResponse();
-    if (restResponse.getStatus() == STATUS_CODE_HELTH_OK) {
-      return;
-    }
-    throw new VaultException(toResponseString(restResponse), restResponse.getStatus());
-  }
-
-  /**
-   * Checks rest response. See https://www.vaultproject.io/api/overview#http-status-codes.
-   *
-   * @param restResponse rest response
-   */
-  private void checkResponse(RestResponse restResponse) throws VaultException {
-    if (restResponse == null) {
-      return;
-    }
-    int status = restResponse.getStatus();
-    switch (status) {
-      case STATUS_CODE_RESPONSE_OK:
-      case STATUS_CODE_RESPONSE_NO_DATA:
-        return;
-      default:
-        String body = toResponseString(restResponse);
-        LOGGER.warn("Vault responded with code: {}, message: {}", status, body);
-        throw new VaultException(body, status);
-    }
-  }
-
-  private String toResponseString(RestResponse response) {
+  private static String toResponseString(RestResponse response) {
     return new String(response.getBody(), StandardCharsets.UTF_8);
   }
 
-  @FunctionalInterface
-  public interface VaultCall<T extends VaultResponse> {
-
-    T apply(Vault vault) throws VaultException;
+  private static String mask(String data) {
+    if (data == null || data.isEmpty() || data.length() < 5) {
+      return "*****";
+    }
+    return data.replace(data.substring(2, data.length() - 2), "***");
   }
 
   public static class Builder {
 
+    private final String secretsPath;
     private Function<VaultConfig, VaultConfig> options = Function.identity();
     private VaultTokenSupplier tokenSupplier = new EnvironmentVaultTokenSupplier();
     private EnvironmentLoader environmentLoader = new EnvironmentLoader();
 
-    private Builder() {}
+    private Builder(String secretsPath) {
+      this.secretsPath = secretsPath;
+    }
 
     public Builder options(UnaryOperator<VaultConfig> config) {
       this.options = this.options.andThen(config);
       return this;
     }
 
+    @SuppressWarnings("unused")
     public Builder environmentLoader(EnvironmentLoader environmentLoader) {
       this.environmentLoader = environmentLoader;
       return this;
@@ -163,7 +130,7 @@ public final class VaultInvoker {
      * @return instance of {@link VaultInvoker}
      */
     public VaultInvoker build() {
-      Builder builder = new Builder();
+      Builder builder = new Builder(secretsPath);
       builder.environmentLoader = environmentLoader;
       builder.options = options;
       builder.tokenSupplier = tokenSupplier;
