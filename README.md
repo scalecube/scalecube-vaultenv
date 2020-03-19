@@ -26,11 +26,11 @@ and maintained by parent scalecube-vaultenv java process.
 
 Environment variables to run a jar: 
 
-`VAULT_ADDR` -- vault server address (required)
-`VAULT_SECRETS_PATH` -- vault secrets path (required)
-`VAULT_ENGINE_VERSION` -- vault KV engine version, by default `1` (being set globally)
-`VAULT_TOKEN` -- vault token for token-auth backend (optional, if `VAULT_ROLE` is set)
-`VAULT_ROLE` -- vault role for lubernetes-auth backend (optional, if `VAULT_TOKEN` is set)
+- `VAULT_ADDR` -- vault server address (required)
+- `VAULT_SECRETS_PATH` -- vault secrets path (required)
+- `VAULT_ENGINE_VERSION` -- vault KV engine version, by default `1` (being set globally)
+- `VAULT_TOKEN` -- vault token for token-auth backend (optional, if `VAULT_ROLE` is set)
+- `VAULT_ROLE` -- vault role for lubernetes-auth backend (optional, if `VAULT_TOKEN` is set)
 
 ## Maven 
 
