@@ -51,7 +51,9 @@ public final class ProcessInvoker {
     stdout.join();
     stderr.join();
 
-    LOGGER.info("Exited [{}], exit code {}", cmd, process.exitValue());
+    int exitCode = process.waitFor();
+
+    LOGGER.info("Exited [{}], exit code {}", cmd, exitCode);
   }
 
   private static String[] mergeSecrets(Map<String, String> secretsEnv) {
