@@ -1,5 +1,6 @@
 package io.scalecube.vaultenv;
 
+import com.bettercloud.vault.VaultException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -7,6 +8,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sun.misc.SignalHandler;
 
 public class VaultEnvironmentRunner {
 
@@ -38,30 +40,33 @@ public class VaultEnvironmentRunner {
 
     Map<String, String> env = System.getenv();
 
-    final String vaultAddr = Objects.requireNonNull(env.get(VAULT_ADDR_ENV), "vault address");
-    final String secretsPath =
-        Objects.requireNonNull(env.get(VAULT_SECRETS_PATH_ENV), "vault secret path");
-
-    String vaultEngineVersion =
-        env.getOrDefault(VAULT_ENGINE_VERSION_ENV, DEFAULT_VAULT_ENGINE_VERSION);
-
-    Map<String, String> secrets =
-        VaultInvoker.builder(secretsPath)
-            .options(c -> c.address(vaultAddr))
-            .options(c -> c.putSecretsEngineVersionForPath(secretsPath + "/", vaultEngineVersion))
-            .tokenSupplier(getVaultTokenSupplier(env))
-            .build()
-            .readSecrets();
+    Map<String, String> secrets = getSecrets(env);
 
     LOGGER.info(
         "Executing cmd: [{}], env: {}",
         cmd,
         Arrays.asList(toEnvironment(secrets, env, true /*mask*/)));
 
-    int exitCode =
-        Runtime.getRuntime().exec(cmd, toEnvironment(secrets, env, false /*mask*/)).waitFor();
+    Runtime runtime = Runtime.getRuntime();
+    int exitCode = runtime.exec(cmd, toEnvironment(secrets, env, false /*mask*/)).waitFor();
 
     LOGGER.info("Cmd: [{}] finished with exit code {}", cmd, exitCode);
+  }
+
+  private static Map<String, String> getSecrets(Map<String, String> env) throws VaultException {
+    final String vaultAddr = Objects.requireNonNull(env.get(VAULT_ADDR_ENV), "vault address");
+    final String secretsPath =
+        Objects.requireNonNull(env.get(VAULT_SECRETS_PATH_ENV), "vault secret path");
+
+    final String vaultEngineVersion =
+        env.getOrDefault(VAULT_ENGINE_VERSION_ENV, DEFAULT_VAULT_ENGINE_VERSION);
+
+    return VaultInvoker.builder(secretsPath)
+        .options(c -> c.address(vaultAddr))
+        .options(c -> c.putSecretsEngineVersionForPath(secretsPath + "/", vaultEngineVersion))
+        .tokenSupplier(getVaultTokenSupplier(env))
+        .build()
+        .readSecrets();
   }
 
   private static VaultTokenSupplier getVaultTokenSupplier(Map<String, String> environment) {
