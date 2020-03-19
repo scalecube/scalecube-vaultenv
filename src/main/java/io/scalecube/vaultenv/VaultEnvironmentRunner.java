@@ -27,7 +27,15 @@ public class VaultEnvironmentRunner {
    * @throws Exception exception
    */
   public static void main(String[] args) throws Exception {
-    final String cmd = Objects.requireNonNull(args[0]);
+    if (args.length != 1) {
+      throw new IllegalArgumentException("wrong args.length");
+    }
+    if (args[0].isEmpty() || args[0].trim().isEmpty()) {
+      throw new IllegalArgumentException("cmd is required");
+    }
+
+    final String cmd = args[0];
+
     Map<String, String> env = System.getenv();
 
     final String vaultAddr = Objects.requireNonNull(env.get(VAULT_ADDR_ENV), "vault address");
@@ -46,11 +54,14 @@ public class VaultEnvironmentRunner {
             .readSecrets();
 
     LOGGER.info(
-        "Executing cmd: \"{}\", env: {}",
+        "Executing cmd: [{}], env: {}",
         cmd,
         Arrays.asList(toEnvironment(secrets, env, true /*mask*/)));
 
-    Runtime.getRuntime().exec(cmd, toEnvironment(secrets, env, false /*mask*/));
+    int exitCode =
+        Runtime.getRuntime().exec(cmd, toEnvironment(secrets, env, false /*mask*/)).waitFor();
+
+    LOGGER.info("Cmd: [{}] finished with exit code {}", cmd, exitCode);
   }
 
   private static VaultTokenSupplier getVaultTokenSupplier(Map<String, String> environment) {
