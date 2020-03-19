@@ -48,7 +48,7 @@ public class VaultEnvironmentRunner {
     Map<String, String> secrets =
         VaultInvoker.builder(secretsPath)
             .options(c -> c.address(vaultAddr))
-            .options(c -> c.putSecretsEngineVersionForPath(secretsPath, vaultEngineVersion))
+            .options(c -> c.putSecretsEngineVersionForPath(secretsPath + "/", vaultEngineVersion))
             .tokenSupplier(getVaultTokenSupplier(env))
             .build()
             .readSecrets();
