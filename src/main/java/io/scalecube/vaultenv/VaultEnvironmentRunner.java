@@ -4,6 +4,8 @@ import com.bettercloud.vault.VaultException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.logging.LogManager;
+import org.slf4j.bridge.SLF4JBridgeHandler;
 
 public class VaultEnvironmentRunner {
 
@@ -14,6 +16,12 @@ public class VaultEnvironmentRunner {
   private static final String VAULT_SECRETS_PATH_ENV = "VAULT_SECRETS_PATH";
   private static final String VAULT_ENGINE_VERSION_ENV = "VAULT_ENGINE_VERSION";
   private static final int DEFAULT_VAULT_ENGINE_VERSION = 1;
+
+  static {
+    // JUL support
+    LogManager.getLogManager().reset();
+    SLF4JBridgeHandler.install();
+  }
 
   /**
    * Main program.
@@ -30,12 +38,12 @@ public class VaultEnvironmentRunner {
     }
 
     String cmd = args[0];
-    Map<String, String> secrets = getSecrets();
+    Map<String, String> secrets = readSecrets();
 
     new ProcessInvoker(cmd, secrets).runThenJoin();
   }
 
-  private static Map<String, String> getSecrets() throws VaultException {
+  private static Map<String, String> readSecrets() throws VaultException {
     String vaultAddr = Objects.requireNonNull(System.getenv(VAULT_ADDR_ENV), "vault address");
     String secretsPath =
         Objects.requireNonNull(System.getenv(VAULT_SECRETS_PATH_ENV), "vault secret path");

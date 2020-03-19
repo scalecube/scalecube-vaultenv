@@ -16,7 +16,7 @@ import sun.misc.SignalHandler;
 
 public final class ProcessInvoker {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger("io.scalecube.vaultenv");
+  private static final Logger LOGGER = LoggerFactory.getLogger("VaultEnvironment");
 
   private final String cmd;
   private final Map<String, String> secrets;
