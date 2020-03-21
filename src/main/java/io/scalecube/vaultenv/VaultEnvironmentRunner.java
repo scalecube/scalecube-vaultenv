@@ -1,13 +1,18 @@
 package io.scalecube.vaultenv;
 
 import com.bettercloud.vault.VaultException;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.logging.LogManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
 public class VaultEnvironmentRunner {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger("VaultEnvironment");
 
   // Vault
   private static final String VAULT_ADDR_ENV = "VAULT_ADDR";
@@ -30,17 +35,15 @@ public class VaultEnvironmentRunner {
    * @throws Exception exception
    */
   public static void main(String[] args) throws Exception {
-    if (args.length != 1) {
-      throw new IllegalArgumentException("wrong args.length (must be 1)");
-    }
-    if (args[0].isEmpty() || args[0].trim().isEmpty()) {
-      throw new IllegalArgumentException("command is required");
-    }
+    LOGGER.info("Starting, arguments: {}", Arrays.asList(args));
+
+    checkArgs(args);
 
     String cmd = args[0];
+    RunningMode runningMode = getRunningMode(args);
     Map<String, String> secrets = readSecrets();
 
-    new ProcessInvoker(cmd, secrets).runThenJoin();
+    new ProcessInvoker(cmd, secrets, runningMode).runThenJoin();
   }
 
   private static Map<String, String> readSecrets() throws VaultException {
@@ -78,5 +81,28 @@ public class VaultEnvironmentRunner {
     }
     // Kub8s token provider
     return new KubernetesVaultTokenSupplier();
+  }
+
+  private static void checkArgs(String[] args) {
+    if (args.length < 2) {
+      throw new IllegalArgumentException("wrong number of arguments (must be 2)");
+    }
+    if (args[0].isEmpty() || args[0].trim().isEmpty()) {
+      throw new IllegalArgumentException("command is required");
+    }
+    if (args[1].isEmpty() || args[1].trim().isEmpty()) {
+      throw new IllegalArgumentException("running mode is required");
+    }
+  }
+
+  private static RunningMode getRunningMode(String[] args) {
+    switch (args[1]) {
+      case "--env":
+        return RunningMode.ENV;
+      case "--input":
+        return RunningMode.INPUT;
+      default:
+        throw new IllegalArgumentException("wrong running mode: " + args[1]);
+    }
   }
 }
