@@ -9,7 +9,7 @@
   </parent>
 
   <artifactId>scalecube-vaultenv</artifactId>
-  <version>0.1.1</version>
+  <version>0.1.2-SNAPSHOT</version>
 
   <name>ScaleCube VaultEnv</name>
   <description>
@@ -23,7 +23,7 @@
     <connection>scm:git:git@github.com:scalecube/scalecube-vaultenv.git</connection>
     <developerConnection>scm:git:git@github.com:scalecube/scalecube-vaultenv.git
     </developerConnection>
-    <tag>v0.1.1</tag>
+    <tag>HEAD</tag>
   </scm>
 
   <properties>
