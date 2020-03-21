@@ -23,19 +23,23 @@ final class ProcessInvoker {
 
   private static final Logger LOGGER = LoggerFactory.getLogger("VaultEnvironment");
 
+  private static final boolean IS_RUNNING_ON_WINDOWS =
+      System.getProperty("os.name").startsWith("Windows");
+  private static final String WINDOWS_TASKKILL_FORMAT = "taskkill /F /T /PID %s";
+
   private final String cmd;
   private final Map<String, String> secrets;
   private final RunningMode mode;
 
   ProcessInvoker(String cmd, Map<String, String> secrets, RunningMode runningMode) {
-    this.secrets = Objects.requireNonNull(secrets, "secrets");
     this.cmd = Objects.requireNonNull(cmd, "command");
+    this.secrets = Objects.requireNonNull(secrets, "secrets");
     this.mode = Objects.requireNonNull(runningMode, "runningMode");
   }
 
   void runThenJoin() throws IOException, InterruptedException {
     LOGGER.info(
-        "Run [{}], mode: {}, env: {}, secrets: {}",
+        "Run [{}], runningMode: {}, environment: {}, secrets: {}",
         cmd,
         mode,
         System.getenv(),
@@ -43,20 +47,22 @@ final class ProcessInvoker {
 
     // Run process
     Process process = Runtime.getRuntime().exec(cmd, getEnvironment(secrets));
+    long pid = process.toHandle().pid();
 
     if (process.isAlive()) {
-      SignalHandler handler = newSignalHandler(process, cmd);
-      Signal.handle(new Signal("TERM"), handler);
-      Signal.handle(new Signal("INT"), handler);
+      LOGGER.debug("Running [{}] on pid {}", cmd, process.toHandle().pid());
+
+      SignalHandler destroyHandler = newDestroyHandler(process);
+      Signal.handle(new Signal("TERM"), destroyHandler);
+      Signal.handle(new Signal("INT"), destroyHandler);
 
       if (mode == RunningMode.INPUT) {
-        // Write secrets to process input
         writeSecrets(process.getOutputStream(), secrets);
       }
     }
 
-    Thread stdout = runOutputFollower("stdout", process.getInputStream(), System.out);
-    Thread stderr = runOutputFollower("stderr", process.getErrorStream(), System.err);
+    Thread stdout = runOutputFollower(pid + "-stdout", process.getInputStream(), System.out);
+    Thread stderr = runOutputFollower(pid + "-stderr", process.getErrorStream(), System.err);
 
     stdout.join();
     stderr.join();
@@ -94,17 +100,25 @@ final class ProcessInvoker {
     return data.replace(data.substring(2, data.length() - 2), "***");
   }
 
-  private static SignalHandler newSignalHandler(Process process, String cmd) {
+  private static SignalHandler newDestroyHandler(Process process) {
     return signal -> {
+      final long pid = process.toHandle().pid();
+
+      if (!process.isAlive()) {
+        return;
+      }
+
+      LOGGER.debug("[destroy][{}] destroying process ...", pid);
+
       try {
-        if (!process.isAlive()) {
-          return;
+        if (!IS_RUNNING_ON_WINDOWS) {
+          process.destroyForcibly().waitFor();
+        } else {
+          Runtime.getRuntime().exec(String.format(WINDOWS_TASKKILL_FORMAT, pid)).waitFor();
         }
-        LOGGER.debug("[destroy][{}] destroying process ...", cmd);
-        process.destroyForcibly().waitFor();
-        LOGGER.debug("[destroy][{}] destroyed process", cmd);
-      } catch (InterruptedException e) {
-        LOGGER.warn("InterruptedException occurred: {}", e.toString());
+        LOGGER.debug("[destroy][{}] destroyed process", pid);
+      } catch (Exception e) {
+        LOGGER.warn("[destroy][{}] Exception occurred: {}", pid, e.toString());
       }
     };
   }

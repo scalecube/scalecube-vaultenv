@@ -53,8 +53,8 @@ final class VaultInvoker {
             .environmentLoader(builder.environmentLoader)
             .build();
 
-    LOGGER.info(
-        "Created VaultConfig instance: {}, getting Vault token using: {} ...",
+    LOGGER.debug(
+        "Created VaultConfig instance: {}, getting vault client token using: {} ...",
         vaultConfig,
         builder.tokenSupplier);
 
@@ -65,18 +65,29 @@ final class VaultInvoker {
       throw new VaultException(e);
     }
 
-    LOGGER.info(
-        "Obtained Vault token ({}), getting Vault health and doing lookupSelf ...", mask(token));
+    LOGGER.debug("Obtained vault client token ({}), creating Vault instance ...", mask(token));
 
     Vault vault = new Vault(vaultConfig.token(token));
     HealthResponse healthResponse = vault.debug().health();
     LookupResponse lookupSelf = vault.auth().lookupSelf();
 
     LOGGER.info(
-        "Created Vault instance: {}, health: {}, lookupSelf: {}",
+        "Created Vault instance: {}, "
+            + "lookupSelf.displayName: {}, "
+            + "lookupSelf.username: {}, "
+            + "lookupSelf.policies: {}, "
+            + "lookupSelf.creationTime: {}, "
+            + "lookupSelf.creationTtl: {}, "
+            + "lookupSelf.ttl: {}, "
+            + "healthInfo: {}",
         vault,
-        toResponseString(healthResponse.getRestResponse()),
-        toResponseString(lookupSelf.getRestResponse()));
+        lookupSelf.getDisplayName(),
+        lookupSelf.getUsername(),
+        lookupSelf.getPolicies(),
+        lookupSelf.getCreationTime(),
+        lookupSelf.getCreationTTL(),
+        lookupSelf.getTTL(),
+        toResponseString(healthResponse.getRestResponse()));
 
     return vault;
   }

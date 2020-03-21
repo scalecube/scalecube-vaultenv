@@ -19,9 +19,8 @@ public final class KubernetesVaultTokenSupplier implements VaultTokenSupplier {
   @Override
   public String getToken(EnvironmentLoader environmentLoader, VaultConfig config)
       throws IOException, VaultException {
-    String role = Objects.requireNonNull(environmentLoader.loadVariable(VAULT_ROLE), "vault role");
+    String role = Objects.requireNonNull(environmentLoader.loadVariable(VAULT_ROLE), "VAULT_ROLE");
     String jwt = Files.lines(Paths.get(SERVICE_ACCOUNT_TOKEN_PATH)).collect(Collectors.joining());
-    return Objects.requireNonNull(
-        new Vault(config).auth().loginByKubernetes(role, jwt).getAuthClientToken(), "vault token");
+    return new Vault(config).auth().loginByKubernetes(role, jwt).getAuthClientToken();
   }
 }
