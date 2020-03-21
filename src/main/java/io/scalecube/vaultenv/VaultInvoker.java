@@ -16,7 +16,7 @@ import java.util.function.UnaryOperator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class VaultInvoker {
+final class VaultInvoker {
 
   private static final Logger LOGGER = LoggerFactory.getLogger("VaultEnvironment");
 
@@ -28,16 +28,11 @@ public final class VaultInvoker {
     this.builder = builder;
   }
 
-  public static Builder builder(String secretsPath) {
+  static Builder builder(String secretsPath) {
     return new Builder(secretsPath);
   }
 
-  /**
-   * Reads secrets.
-   *
-   * @return map of secrets
-   */
-  public Map<String, String> readSecrets() throws VaultException {
+  Map<String, String> readSecrets() throws VaultException {
     LogicalResponse response = createVault().logical().read(builder.secretsPath);
 
     RestResponse restResponse = response.getRestResponse();
@@ -97,7 +92,7 @@ public final class VaultInvoker {
     return data.replace(data.substring(2, data.length() - 2), "***");
   }
 
-  public static class Builder {
+  static class Builder {
 
     private final String secretsPath;
     private Function<VaultConfig, VaultConfig> options = Function.identity();
@@ -108,28 +103,23 @@ public final class VaultInvoker {
       this.secretsPath = secretsPath;
     }
 
-    public Builder options(UnaryOperator<VaultConfig> config) {
+    Builder options(UnaryOperator<VaultConfig> config) {
       this.options = this.options.andThen(config);
       return this;
     }
 
     @SuppressWarnings("unused")
-    public Builder environmentLoader(EnvironmentLoader environmentLoader) {
+    Builder environmentLoader(EnvironmentLoader environmentLoader) {
       this.environmentLoader = environmentLoader;
       return this;
     }
 
-    public Builder tokenSupplier(VaultTokenSupplier supplier) {
+    Builder tokenSupplier(VaultTokenSupplier supplier) {
       this.tokenSupplier = supplier;
       return this;
     }
 
-    /**
-     * Builds vault invoker.
-     *
-     * @return instance of {@link VaultInvoker}
-     */
-    public VaultInvoker build() {
+    VaultInvoker build() {
       Builder builder = new Builder(secretsPath);
       builder.environmentLoader = environmentLoader;
       builder.options = options;
