@@ -1,12 +1,17 @@
 package io.scalecube.vaultenv;
 
+import com.bettercloud.vault.json.JsonObject;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.LineNumberReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -14,35 +19,40 @@ import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
 
-public final class ProcessInvoker {
+final class ProcessInvoker {
 
   private static final Logger LOGGER = LoggerFactory.getLogger("VaultEnvironment");
 
   private final String cmd;
   private final Map<String, String> secrets;
+  private final RunningMode mode;
 
-  public ProcessInvoker(String cmd, Map<String, String> secrets) {
+  ProcessInvoker(String cmd, Map<String, String> secrets, RunningMode runningMode) {
     this.secrets = Objects.requireNonNull(secrets, "secrets");
     this.cmd = Objects.requireNonNull(cmd, "command");
+    this.mode = Objects.requireNonNull(runningMode, "runningMode");
   }
 
-  /**
-   * Run the join.
-   *
-   * @throws IOException exception
-   * @throws InterruptedException exption
-   */
-  public void runThenJoin() throws IOException, InterruptedException {
+  void runThenJoin() throws IOException, InterruptedException {
     LOGGER.info(
-        "Run [{}], env: {}, secrets: {}", cmd, System.getenv(), toEnvironment(secrets, true));
+        "Run [{}], mode: {}, env: {}, secrets: {}",
+        cmd,
+        mode,
+        System.getenv(),
+        maskSecrets(secrets));
 
     // Run process
-    Process process = Runtime.getRuntime().exec(cmd, mergeSecrets(toEnvironment(secrets, false)));
+    Process process = Runtime.getRuntime().exec(cmd, getEnvironment(secrets));
 
     if (process.isAlive()) {
       SignalHandler handler = newSignalHandler(process, cmd);
       Signal.handle(new Signal("TERM"), handler);
       Signal.handle(new Signal("INT"), handler);
+
+      if (mode == RunningMode.INPUT) {
+        // Write secrets to process input
+        writeSecrets(process.getOutputStream(), secrets);
+      }
     }
 
     Thread stdout = runOutputFollower("stdout", process.getInputStream(), System.out);
@@ -56,27 +66,25 @@ public final class ProcessInvoker {
     LOGGER.info("Exited [{}], exit code {}", cmd, exitCode);
   }
 
-  private static String[] mergeSecrets(Map<String, String> secretsEnv) {
+  private String[] getEnvironment(Map<String, String> secrets) {
     Map<String, String> environment = new HashMap<>();
 
-    environment.putAll(System.getenv()); // parent env first
-    environment.putAll(secretsEnv); // secrets second (can override)
+    if (mode == RunningMode.INPUT) {
+      environment.putAll(System.getenv());
+    }
+    if (mode == RunningMode.ENV) {
+      environment.putAll(System.getenv()); // parent env first
+      environment.putAll(secrets); // secrets second (can override)
+    }
 
     return environment.entrySet().stream()
         .map(entry -> entry.getKey() + "=" + entry.getValue())
         .toArray(String[]::new);
   }
 
-  private static Map<String, String> toEnvironment(Map<String, String> secrets, boolean mask) {
+  private static Map<String, String> maskSecrets(Map<String, String> secrets) {
     return secrets.entrySet().stream()
-        .collect(
-            Collectors.toMap(
-                entry -> toEnvironment(entry.getKey()),
-                entry -> mask ? mask(entry.getValue()) : entry.getValue()));
-  }
-
-  private static String toEnvironment(String key) {
-    return key.replaceAll("[.\\-/#]", "_").toUpperCase();
+        .collect(Collectors.toMap(Entry::getKey, entry -> mask(entry.getValue())));
   }
 
   private static String mask(String data) {
@@ -117,5 +125,16 @@ public final class ProcessInvoker {
     Thread thread = new Thread(newOutputFollower(is, ps), name);
     thread.start();
     return thread;
+  }
+
+  private static void writeSecrets(OutputStream outputStream, Map<String, String> secrets)
+      throws IOException {
+
+    JsonObject jsonObject = new JsonObject();
+    secrets.forEach(jsonObject::add);
+
+    try (OutputStreamWriter osw = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8)) {
+      jsonObject.writeTo(osw);
+    }
   }
 }
