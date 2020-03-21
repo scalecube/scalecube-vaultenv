@@ -47,9 +47,9 @@ public class VaultEnvironmentRunner {
   }
 
   private static Map<String, String> readSecrets() throws VaultException {
-    String vaultAddr = Objects.requireNonNull(System.getenv(VAULT_ADDR_ENV), "vault address");
+    String vaultAddr = Objects.requireNonNull(System.getenv(VAULT_ADDR_ENV), VAULT_ADDR_ENV);
     String secretsPath =
-        Objects.requireNonNull(System.getenv(VAULT_SECRETS_PATH_ENV), "vault secret path");
+        Objects.requireNonNull(System.getenv(VAULT_SECRETS_PATH_ENV), VAULT_SECRETS_PATH_ENV);
 
     int vaultEngineVersion =
         Optional.ofNullable(System.getenv(VAULT_ENGINE_VERSION_ENV))
