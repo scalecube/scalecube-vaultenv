@@ -6,12 +6,13 @@ and running with them a command or a script.
 ## Usage
 
 - Get a binary `scalecube-vaultenv-VERSION-shaded.jar`
-- Install Java (at least 8)
+- Install Java (8+)
 - Export configuration environment variables (see below) 
 - Execute in terminal: `java -jar scalecube-vaultenv-x.y.z-shaded.jar "[CMD]" [RUNNING_MODE]`.
 
 `CMD` -- command to run, can be for example `npm start` or `python ./start_app.py`, 
 and must come with double quotes. 
+
 `RUNNING_MODE` -- there're two running modes: `--input` (vaultenv shall pass secrets to `stdin` of the `CMD` process) and `--env` (vaultenv shall pass secrets as environment variables of the `CMD` process). **NOTE: the latter approach is not recommended on prod environments ([finding env variables in kubernetes](https://blog.nillsf.com/index.php/2020/02/24/dont-use-environment-variables-in-kubernetes-to-consume-secrets/), [show env variables in linux](https://ma.ttias.be/show-the-environment-variables-of-a-running-process-in-linux/)).
 
 ### Child process
