@@ -1,6 +1,6 @@
 # Scalecube VaultEnvironment
 
-ScaleCube VaultEnvironment is an utility for reading static secrets from Vault server 
+Scalecube VaultEnvironment is an utility for reading static secrets from Vault server 
 and running with them a command or a script. 
 
 ## Usage
