@@ -1,4 +1,4 @@
-# ScaleCube VaultEnvironment
+# Scalecube VaultEnvironment
 
 ScaleCube VaultEnvironment is an utility for reading static secrets from Vault server 
 and running with them a command or a script. 
@@ -8,19 +8,20 @@ and running with them a command or a script.
 - Get a binary `scalecube-vaultenv-VERSION-shaded.jar`
 - Install Java (at least 8)
 - Export configuration environment variables (see below) 
-- Execute in terminal: `java -jar scalecube-vaultenv-x.y.z-shaded.jar "CMD"`
+- Execute in terminal: `java -jar scalecube-vaultenv-x.y.z-shaded.jar "[CMD]" [RUNNING_MODE]`.
 
-A command CMD can be for example `npm start` or `python ./start_app.py`, 
+`CMD` -- command to run, can be for example `npm start` or `python ./start_app.py`, 
 and must come with double quotes. 
+`RUNNING_MODE` -- there're two running modes: `--input` (vaultenv shall pass secrets to `stdin` of the `CMD` process) and `--env` (vaultenv shall pass secrets as environment variables of the `CMD` process). **NOTE: the latter approach is not recommended on prod environments ([finding env variables in kub8s](https://blog.nillsf.com/index.php/2020/02/24/dont-use-environment-variables-in-kubernetes-to-consume-secrets/), [show env variables in linux](https://ma.ttias.be/show-the-environment-variables-of-a-running-process-in-linux/)).
 
 ### Child process
 
 Given in program arguments CMD will be executed in separate process with following semantic: 
 - Output(both stdout and stderr) of the forked child process will be redirected to the console 
 and maintained by parent scalecube-vaultenv java process.
-- If scalecube-vaultenv java exits then forked child process exits as well (by SIGINT or SIGTERM).
+- If scalecube-vaultenv java exits then forked child process exits as well (by SIGINT or SIGTERM).**NOTE: on windows you have to have `taskkill` installed for proper child process destroy. 
 - An opposite is also true, if forked child process exits then scalecube-vaultenv java exits as well.
-- Forked CMD process inherits working directory of the parent scalecube-vaultenv java runner.
+- Forked CMD process inherits working directory and environment variables of the parent scalecube-vaultenv java runner.
 
 ## Config
 
